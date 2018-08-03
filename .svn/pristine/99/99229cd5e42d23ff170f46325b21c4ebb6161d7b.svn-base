@@ -1,0 +1,77 @@
+
+var __GlobalInfo = require('../../utils/config.js');
+var util = require('../../utils/util.js');
+//获取应用实例
+const app = getApp()
+Page({
+  data: {
+    GlobalInfo: __GlobalInfo,
+  },
+  onLoad: function (e) {
+    var that = this;
+    console.log(e.searchType)
+    var searchType = e.searchType
+    util.getServerData({
+      "condation": "",
+      "onecate": "",
+      "twocate": "",
+      "courseType": "",
+      "searchType": searchType,
+      "pageIndex": 1,
+      "pageSize": 10,
+      "allCount": 0,
+      "maxSize": 10,
+      "studentid": wx.getStorageSync('loginUser').studentId
+    }, "api/getcoursewarelistforwcate", function (result) {
+      console.log(result)
+      for (var i in result.list) {
+        result.list[i].duration = util.secondToDate(parseInt(result.list[i].duration) * 60);
+      }
+      that.setData({ coursewarelist_2: result.list });
+    }, "post");
+  },
+  // 专题——必修
+
+  // 加载更多
+  // loadMore1: function (e) {
+  //   var that = this;
+  //   if (that.data.lastPageSize1 >= that.data.pagesize) {
+  //     var index = that.data.index;
+  //     index++;
+  //     that.setData({
+  //       index: index,
+  //       pageindex: index * that.data.pagesize,
+  //     });
+  //     that.getPageData2()
+
+  //   } else {
+  //     return;
+  //   }
+  // },
+  // 课程——推荐——最热课程跳转详情
+  detailkchot: function (e) {
+    var that = this;
+    var index = e.currentTarget.dataset.index;
+    console.log(that.data.coursewarelist_2)
+    wx.navigateTo({
+      url: `/pages/lesdetail/detail?id=${that.data.coursewarelist_2[index].coursewareid}`,
+    })
+  },
+  onReady: function () {
+
+  },
+  onShareAppMessage: function (res) {
+
+  },
+
+
+  onPullDownRefresh: function () {
+
+  },
+  //跳转到搜索页
+
+
+  onChangeTab: function (event) {
+
+  }
+})

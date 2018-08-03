@@ -1,0 +1,6 @@
+{
+  "component": true,
+  "navigationBarTitleText": "学课",
+  "usingComponents": {},
+  "enablePullDownRefresh": true
+}

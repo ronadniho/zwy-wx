@@ -1,0 +1,1021 @@
+const util = require('../../utils/util.js')
+const les_tool = require('./tool.js')
+const polyv = require('../../utils/polyv.js');
+var __GlobalInfo = require('../../utils/config.js');
+
+const app = getApp()
+
+Page({
+  data: {
+    timerLan: 0,
+    timeCicle: 20000,
+    GlobalInfo: __GlobalInfo,
+    lesnone: 0,
+    lesorsee: -1,//音频与视频切换开关
+    isshow: 0,
+    videoStart: -1,//音视频播放位置
+    videoSrc: "",
+    audoSrc: '',
+    audoCover: "",
+    percent: 0,//音频播放百分比进度
+    lastplaytime: 0,
+    curTimeString: "00:00",//音频播放时间
+    durationString: "00:00",//音频时长
+    audioAction: {
+      method: 'pause'
+    },//音频播放动作
+    firstPlay: 0,//
+    firstVideoPlay: 0,//
+    isAutoPlay: 1,
+    currentTab: 0,//tab控制
+    info: {
+      comment: "",
+      title: "",
+      studytime: "0",
+      clickrate: "0",
+      gradecount: "0",
+      grade: "0",
+      lessions: [],
+      ifcollectedcourse: "",
+      selected_lessions: [],
+      isappraise: "0"
+    },
+    joinJudgeControl: 0,
+    evs: [
+      {
+        "itemid": 1,
+        "itemname": "观点清晰",
+        "rate": 0,
+        "max": 5,
+        "isReadonly": false,
+        "overStar": null,
+        "percent": 0
+      },
+      {
+        "itemid": 2,
+        "itemname": "联系实际",
+        "rate": 0,
+        "max": 5,
+        "isReadonly": false,
+        "overStar": null,
+        "percent": 0
+      },
+      {
+        "itemid": 3,
+        "itemname": "内容丰富",
+        "rate": 0, "max": 5,
+        "isReadonly": false,
+        "overStar": null,
+        "percent": 0
+      },
+      {
+        "itemid": 4,
+        "itemname": "讲授认真",
+        "rate": 0,
+        "max": 5,
+        "isReadonly": false,
+        "overStar": null,
+        "percent": 0
+      },
+      {
+        "itemid": 5,
+        "itemname": "形式生动",
+        "rate": 0,
+        "max": 5,
+        "isReadonly": false,
+        "overStar": null,
+        "percent": 0
+      }
+    ],
+    eva_panel: 0,
+    currentID: "",
+    stepIndex: 0,
+    anchor: "",
+    px: 0,
+    fixed_panel: 0,
+    animationData: {},
+    processBarShow: 0,
+    lesid: "",
+    classid: "",
+    pageindex: 0,
+    pkey: "",
+    lastSaveTime: 0
+  },
+  scroll: function (e) {
+    if (e.detail.scrollTop >= this.data.px) {
+      this.setData({
+        fixed_panel: 1
+      });
+    }
+    else {
+      this.setData({
+        fixed_panel: 0
+      });
+    }
+  },
+  lower: function (e) {
+    this.queryHaveList();
+  },
+  onLoad: function (option) {
+    let that = this;
+    var rpx = 200;
+    var systemInfo = wx.getSystemInfoSync();
+    var px = rpx / 750 * systemInfo.windowWidth;
+    this.setData({
+      px: px
+    });
+
+    if (option.lesid) {
+      that.setData({
+        lesid: option.lesid
+      })
+    }
+
+    if (option.classid) {
+      that.setData({
+        classid: option.classid
+      })
+    }
+
+  },
+  onReady: function (option) {
+
+    wx.setNavigationBarColor({
+      frontColor: '#ffffff',
+      backgroundColor: '#F14141'
+    })
+    wx.setNavigationBarTitle({
+      title: "详情"
+    })
+
+    //获取视频句柄
+    this.videoContext = wx.createVideoContext('lessVideo');
+
+    this.queryData();
+
+
+  },
+  queryData: function () {
+    let that = this;
+
+    let args = {
+      "coursewareid": that.data.lesid,
+      "classid": that.data.classid,
+      "enableplaylist": true
+    }
+
+    console.log(args);
+
+    util.getServerData(args, "api/getCoursewareVideoplay", function (result) {
+
+      console.log(result);
+
+      if (result.playlist.length < 1) {
+        wx.showToast({
+          title: "当前所有课程已学完,请返回选择其他课程进行学习",
+          icon: 'none',
+          duration: 5000,
+          success: function () {
+
+          }
+        })
+        that.setData({ lesnone: 1 });
+        return;
+      }
+
+
+
+      let lessions = [];
+      let stepIndex = 0;
+      if (result.playlist && result.playlist.length > 0) {
+
+        let playlist = result.playlist;
+
+        for (let i = 0; i < playlist.length; i++) {
+          var timestamp = Date.parse(new Date());
+          let les = {
+            id: playlist[i].id,
+            title: playlist[i].name,
+            src: playlist[i].imagephoto + "?t=" + timestamp,
+            audoSrc: playlist[i].audio_url,
+            vid: playlist[i].teachervideo,
+            isrequire: playlist[i].isrequire,
+            teachersname: playlist[i].teachersname,
+            clickrate: playlist[i].clickrate,
+            playpercentage: playlist[i].playpercentage == "" ? '0%' : playlist[i].playpercentage,
+            studytime: playlist[i].studytime, 
+            see: 0,
+            playIndex: i
+          }
+          if (playlist[i].id == result.currentcourseware.id) {
+            stepIndex = i;
+          }
+          lessions.push(les);
+        }
+
+        for (let i = 0; i < lessions.length; i++) {
+          if (i < 2) {
+            lessions[i]["anchor"] = "";
+          }
+          else {
+            lessions[i]["anchor"] = "S_" + lessions[i - 1].id;
+          }
+        }
+
+
+        let vidSrc = "";
+        let callbackSetData = function () {
+          let lesorsee = -1;
+          let isshow = 0;
+          if (util.isBlank(lessions[stepIndex].audoSrc) && !util.isBlank(vidSrc)) {
+            lesorsee = 1;
+          }
+
+          if (!util.isBlank(lessions[stepIndex].audoSrc) && util.isBlank(vidSrc)) {
+            lesorsee = 0;
+          }
+
+          if (!util.isBlank(lessions[stepIndex].audoSrc) && !util.isBlank(vidSrc)) {
+            lesorsee = 1;
+            isshow = 1;
+          }
+
+          let audoSrc = that.data.GlobalInfo.fileUrl + lessions[stepIndex].audoSrc;
+          let audoCover = lessions[stepIndex].src;
+          let currentID = lessions[stepIndex].id;
+          let anchor = lessions[stepIndex].anchor;
+
+
+          that.setData({
+            lesorsee: lesorsee,
+            isshow: isshow,
+            videoSrc: vidSrc,
+            audoSrc: audoSrc,
+            audoCover: audoCover,
+            stepIndex: ++stepIndex,
+            anchor: anchor,
+            currentID: currentID
+          })
+
+          that.queryEvl();
+
+          that.audoInit();
+
+
+        }
+
+        if (lessions[stepIndex].vid != "") {
+          /*获取视频数据*/
+          polyv.getVideo(lessions[stepIndex].vid, function (videoInfo) {
+            vidSrc = videoInfo.src[0];
+            callbackSetData();
+          });
+        }
+        else {
+          callbackSetData();
+        }
+
+      }
+
+      that.setData({
+        lesid: result.currentcourseware.id,
+        lastplaytime: result.currentcourseware.lastplaytime != "" ? result.currentcourseware.lastplaytime : 0,
+        lastSaveTime: result.currentcourseware.lastplaytime != "" ? result.currentcourseware.lastplaytime : 0,
+        ["info.comment"]: result.currentcourseware.comment,
+        ["info.title"]: result.currentcourseware.name,
+        ["info.studytime"]: result.currentcourseware.studytime,
+        ["info.clickrate"]: result.currentcourseware.clickrate,
+        ["info.gradecount"]: result.currentcourseware.gradecount,
+        ["info.grade"]: result.currentcourseware.grade,
+        ["info.ifcollectedcourse"]: result.currentcourseware.ifcollectedcourse,
+        ["info.lessions"]: lessions
+      })
+
+    
+
+
+
+    }, "POST");
+
+
+
+
+    that.queryHaveList();
+
+
+  },
+  queryHaveList: function () {
+    let that = this;
+    let loginUser = wx.getStorageSync('loginUser');
+    let pageindex = that.data.pageindex;
+
+    util.getServerData({
+      key: ["selectFinishedCourseware"],
+      postData: {
+        studentid: loginUser.studentId,
+        "pageindex": pageindex,
+        "pagesize": 5
+      }
+    }, "api/CommonSQL", function (result) {
+      pageindex += 5;
+
+      console.log(that.data.info.selected_lessions);
+
+      let selected_lessions = that.data.info.selected_lessions;
+      for (let i = 0; i < result.length; i++) {
+        selected_lessions.push(result[i]);
+      }
+      that.setData({
+        pageindex: pageindex,
+        ["info.selected_lessions"]: selected_lessions
+      })
+    });
+  },
+  queryDetail: function () {
+    let that = this;
+
+    let detai_args = {
+      "coursewareid": that.data.lesid,
+      "classid": "",
+      "enableplaylist": true
+    }
+
+    console.log("queryDetail参数:");
+    console.log(detai_args);
+
+    util.getServerData(detai_args, "api/getCoursewareVideoplay", function (result) {
+
+      console.log("queryDetail结果:");
+      console.log(result);
+
+      if (result.playlist.length < 1) {
+        wx.showToast({
+          title: "当前所有课程已学完,请返回选择其他课程进行学习",
+          icon: 'none',
+          duration: 5000,
+          success: function () {
+
+          }
+        })
+        that.setData({ lesnone: 1 });
+        return;
+      }
+
+      that.setData({
+        lesid: result.currentcourseware.id,
+        lastplaytime: result.currentcourseware.lastplaytime != "" ? result.currentcourseware.lastplaytime : 0,
+        lastSaveTime: result.currentcourseware.lastplaytime != "" ? result.currentcourseware.lastplaytime : 0,
+        ["info.comment"]: result.currentcourseware.comment,
+        ["info.title"]: result.currentcourseware.name,
+        ["info.studytime"]: result.currentcourseware.studytime,
+        ["info.clickrate"]: result.currentcourseware.clickrate,
+        ["info.gradecount"]: result.currentcourseware.gradecount,
+        ["info.grade"]: result.currentcourseware.grade,
+        ["info.ifcollectedcourse"]: result.currentcourseware.ifcollectedcourse,
+        firstVideoPlay: 0,
+        firstPlay: 0
+      })
+
+      wx.setNavigationBarTitle({
+        title: result.currentcourseware.name
+      })
+
+      that.audoInit();
+
+    }, "POST");
+
+    that.queryEvl();
+
+
+  },
+  queryEvl: function () {
+    let that = this;
+    util.getServerData({
+      "key": ["geAppraisetFlag"],
+      "postData": { "id": that.data.lesid }
+    }, "api/CommonSQL", function (result) {
+      that.setData({
+        ["info.isappraise"]: result[0].isappraise
+      })
+    }, "POST");
+  },
+  //tab切换
+  swichNav: function (e) {
+    var that = this;
+    if (this.data.currentTab === e.target.dataset.current) {
+      return false;
+    } else {
+      that.setData({
+        currentTab: e.target.dataset.current
+      })
+    }
+  },
+  //视频加载出错事件
+  videoErrorCallback: function (e) {
+  },
+  //视频全屏事件
+  onVideoChange: function (e) {
+    if (!e.detail.fullScreen) {
+      this.videoContext.pause()
+    }
+  },
+  //视频开始播放事件
+  videoBindplay: function () {
+
+  },
+  //视频时间更新事件
+  videoTimeUpdate: function (e) {
+    let that = this;
+
+    let currentTime = parseFloat(e.detail.currentTime);
+    let duration = parseFloat(e.detail.duration);
+
+    if (this.duration != duration) {
+      this.duration = duration;
+      let durationString = les_tool.sec_to_time(this.duration);
+      this.setData({
+        durationString: durationString
+      });
+
+      if (this.data.firstVideoPlay == 0) {
+
+        let starttime = that.data.lastplaytime;
+        if (starttime >= 1) {
+          this.videoContext.seek(starttime);
+          that.saveVideoLog(starttime);
+        }
+        this.setData({
+          firstVideoPlay: 1
+        });
+
+        if (that.data.lesorsee == 0) {
+          that.videoContext.pause();
+        }
+
+      }
+
+    }
+
+    let percent = parseFloat(currentTime / duration) * 100;
+    this.setData({
+      percent: percent, curTimeString: les_tool.sec_to_time(currentTime)
+    });
+    this.setData({
+      videoStart: e.detail.currentTime
+    })
+    let timerLan = that.data.timerLan;
+    if (timerLan < parseInt(that.data.timeCicle)) {
+      timerLan += 250;
+      this.setData({
+        timerLan: timerLan
+      });
+    }
+    else {
+      this.setData({
+        timerLan: 0
+      });
+      that.saveVideoLog(-1);
+    }
+
+    if (Math.abs(that.data.lastSaveTime - e.detail.currentTime) > 80) {
+      that.saveVideoLog(-1);
+    }
+
+
+
+  },
+  //音频时间更新事件
+  audioTimeUpdated: function (e) {
+    let that = this;
+
+    let currentTime = parseFloat(e.detail.currentTime);
+    let duration = parseFloat(e.detail.duration);
+
+    if (this.duration != duration) {
+      this.duration = duration;
+      let durationString = les_tool.sec_to_time(this.duration);
+      this.setData({
+        durationString: durationString
+      });
+
+
+      if (this.data.firstPlay == 0) {
+
+        let starttime = that.data.lastplaytime;
+
+        if (starttime < 1) {
+          this.setData({
+            firstPlay: 1,
+            audioAction: {
+              method: 'play'
+            }
+          });
+        }
+        else {
+          that.saveVideoLog(starttime);
+          this.setData({
+            firstPlay: 1,
+            audioAction: {
+              method: 'setCurrentTime',
+              data: starttime
+            }
+          });
+          this.setData({
+            audioAction: {
+              method: 'play'
+            }
+          });
+        }
+        
+      }
+
+    }
+
+    let percent = parseFloat(currentTime / duration) * 100;
+    this.setData({
+      percent: percent, curTimeString: les_tool.sec_to_time(currentTime)
+    });
+    this.setData({
+      videoStart: e.detail.currentTime
+    })
+    let timerLan = that.data.timerLan;
+    if (timerLan < parseInt(that.data.timeCicle)) {
+      timerLan += 250;
+      this.setData({
+        timerLan: timerLan
+      });
+    }
+    else {
+      this.setData({
+        timerLan: 0
+      });
+      that.saveVideoLog(-1);
+    }
+    if (Math.abs(that.data.lastSaveTime - e.detail.currentTime) > 80) {
+      that.saveVideoLog(-1);
+    }
+
+  },
+  //视频播放结束事件
+  videoBindended: function (e) {
+    this.playEndEvent();
+  },
+  //切换音频与视频
+  switchVideo: function (e) {
+    let that = this;
+    let lesorsee = that.data.lesorsee;
+    switch (lesorsee) {
+      case 0:
+        if (that.data.videoSrc && !util.isBlank(that.data.videoSrc)) {
+          this.setData({
+            audioAction: {
+              method: 'pause'
+            }
+          })
+          this.videoContext.seek(this.data.videoStart);
+          this.videoContext.play();
+          lesorsee = lesorsee == 0 ? 1 : 0;
+          that.setData({
+            lesorsee: lesorsee
+          })
+        }
+        else {
+          wx.showToast({
+            title: '无视频',
+            icon: 'none',
+            duration: 2000
+          })
+        }
+
+        break;
+      case 1:
+        if (that.data.audoSrc && !util.isBlank(that.data.audoSrc)) {
+          this.videoContext.pause();
+          this.setData({
+            audioAction: {
+              method: 'setCurrentTime',
+              data: this.data.videoStart
+            }
+          });
+          this.setData({
+            audioAction: {
+              method: 'play'
+            }
+          })
+          lesorsee = lesorsee == 0 ? 1 : 0;
+          that.setData({
+            lesorsee: lesorsee
+          })
+        }
+        else {
+          wx.showToast({
+            title: '无音频',
+            icon: 'none',
+            duration: 2000
+          })
+        }
+
+        break;
+    }
+
+  },
+  //音频开始播放事件
+  audioPlayed: function (e) {
+  },
+  //音频播放结束事件
+  audioEnd: function () {
+    this.playEndEvent();
+  },
+  //音频进度条控制
+  timeSliderChanged: function (e) {
+    if (!this.duration)
+      return;
+
+    let method = this.data.audioAction.method;
+
+    this.setData({
+      audioAction: {
+        method: 'setCurrentTime',
+        data: this.duration * e.detail.value / 100
+      }
+    });
+
+    this.setData({
+      audioAction: {
+        method: method
+      }
+    });
+
+  },
+  //音频
+  playAudio: function () {
+    this.setData({
+      audioAction: {
+        method: 'play'
+      }
+    });
+  },
+  //音频
+  pauseAudio: function () {
+    this.setData({
+      audioAction: {
+        method: 'pause'
+      }
+    });
+  },
+  //音频初始化
+  audoInit: function () {
+    let that = this;
+    if (this.data.lesorsee == 0) {
+      this.setData({
+        audioAction: {
+          method: 'play'
+        }
+      });
+    }
+  },
+  //视频音频播放结束事件
+  playEndEvent: function () {
+    let that = this;
+    that.saveVideoLog(-1);
+    let stepIndex = that.data.stepIndex;
+    let lessions = that.data.info.lessions;
+    lessions[stepIndex-1]["see"] = 1;
+    that.setData({
+      ["info.lessions"]: lessions
+    })
+    that.playEndAction(stepIndex);
+  },
+  playClick: function (e) {
+    let that = this;
+    let stepIndex = e.currentTarget.dataset.item.playIndex;
+    let lessions = that.data.info.lessions;
+    if (lessions[stepIndex]["see"] == 0){
+      that.playEndAction(stepIndex);
+    }
+    else{
+      wx.showToast({
+        title: "此课程已观看",
+        icon: 'none',
+        duration: 2000
+      })
+    }
+    
+  },
+  playEndAction: function (stepIndex) {
+    let that = this;
+    let lessions = that.data.info.lessions;
+    if (!lessions[stepIndex]) {
+      stepIndex = 0;
+    }
+
+    if (lessions[stepIndex]) {
+
+      let vidSrc = "";
+      let lesorsee = -1;
+      let isshow = 0;
+
+      let callbackSetData = function () {
+
+        if (util.isBlank(lessions[stepIndex].audoSrc) && !util.isBlank(vidSrc)) {
+          lesorsee = 1;
+        }
+
+        if (!util.isBlank(lessions[stepIndex].audoSrc) && util.isBlank(vidSrc)) {
+          lesorsee = 0;
+        }
+
+        if (!util.isBlank(lessions[stepIndex].audoSrc) && !util.isBlank(vidSrc)) {
+          lesorsee = 1;
+          isshow = 1;
+        }
+
+        let id = lessions[stepIndex].id;
+        let title = lessions[stepIndex].title;
+        let audoSrc = lessions[stepIndex].audoSrc;
+        let audoCover = lessions[stepIndex].src;
+        let anchor = lessions[stepIndex].anchor;
+        let currentID = lessions[stepIndex].id;
+
+
+        that.setData({
+          lesid: id,
+          ["info.title"]: title,
+          lesorsee: lesorsee,
+          isshow: isshow,
+          videoSrc: vidSrc,
+          audoSrc: audoSrc,
+          audoCover: audoCover,
+          stepIndex: ++stepIndex,
+          anchor: anchor,
+          currentID: currentID,
+          percent: 0,
+          videoStart: -1,
+          curTimeString: "00:00",//音频播放时间
+          durationString: "00:00"
+        })
+
+        that.queryDetail();
+
+
+
+      }
+
+      if (lessions[stepIndex].vid != "") {
+        /*获取视频数据*/
+        polyv.getVideo(lessions[stepIndex].vid, function (videoInfo) {
+          vidSrc = videoInfo.src[0];
+          callbackSetData();
+        });
+      }
+      else {
+        callbackSetData();
+      }
+
+
+
+    }
+  },
+  //保存视频进度
+  saveVideoLog: function (timeVim) {
+    let that = this;
+    let loginUser = wx.getStorageSync('loginUser');
+
+    let timeline = (timeVim == -1 ? that.data.videoStart : timeVim);
+
+    if (that.data.videoStart == -1) {
+      return;
+    }
+
+    if (that.data.lesid == undefined) {
+      return;
+    }
+
+    let studentid = loginUser.studentId;
+    let uuidStr = util.Guid();
+    let accountid = loginUser.accountId;
+    let lesid = that.data.lesid;
+    let title = that.data.info.title;
+    let time = parseInt(timeline);
+    let timestamp = parseInt(timeline);
+    let studytime = parseInt(timeline);
+    let videoDuration = les_tool.full_sec_to_time(this.duration);
+
+    let args = {
+      "pkey": "",
+      "studentid": studentid,
+      "time": time,
+      "currentID": uuidStr,
+      "timestamp": timestamp,
+      "videoDuration": videoDuration,
+      "coursewareid": lesid,
+      "accountid": accountid,
+      "studytime": studytime,
+      "studetailcount": 1,
+      "courwarestudytime": that.data.info.studytime,
+      "coursewarename": title
+    }
+
+    let pre_args = {
+      "studentid": loginUser.studentId,
+      "coursewareid": that.data.lesid,
+      "courwarestudytime": that.data.info.studytime
+    }
+
+    console.log(pre_args);
+
+    util.getServerData(pre_args, "api/getVideoLogPKey", function (result) {
+      if (result.code) {
+
+        args.pkey = result.pkey;
+
+        console.log(args);
+
+        util.getServerData(args, "api/videoPlay", function (result) {
+          console.log(result);
+          that.setData({ "lastSaveTime": time });
+        });
+
+      }
+    });
+  },
+  //收藏点击
+  collectionClick: function () {
+    let that = this;
+    let loginUser = wx.getStorageSync('loginUser');
+
+    if (that.data.info.ifcollectedcourse == '0') {
+      util.getServerData([
+        {
+          coursewareid: that.data.lesid,
+          studentid: loginUser.studentId
+        }
+      ], "api/insertCourseWareCollection", function (result) {
+        that.queryDetail();
+        wx.showToast({
+          title: result.message,
+          icon: 'none',
+          duration: 2000
+        })
+      });
+    }
+    else{
+      util.getServerData([
+        {
+          coursewareid: that.data.lesid,
+          studentid: loginUser.studentId
+        }
+      ], "api/deleteCourseWareCollection", function (result) {
+        that.queryDetail();
+        wx.showToast({
+          title: result.message,
+          icon: 'none',
+          duration: 2000
+        })
+      });
+    }
+
+  },
+  //分享点击
+  onShareAppMessage: function (res) {
+    let that = this;
+    if (res.from === 'button') {
+      // 来自页面内转发按钮
+      console.log(res.target)
+    }
+    return {
+      title: that.data.info.title,
+      path: '/pages/lesdetail/detailx?lesid=' + that.data.lesid + "&classid=" + that.data.classid
+    }
+
+
+  },
+  //取消待学
+  cancelStudy: function (e) {
+    let that = this;
+    let loginUser = wx.getStorageSync('loginUser');
+    let id = e.currentTarget.dataset.item.id;
+    console.log(id);
+    console.log(loginUser.studentId);
+
+    util.getServerData({
+      studentid: loginUser.studentId,
+      coursewareid: id
+    }, "api/deleteToBeStudiedUseWeicatApp/delete", function (result) {
+      console.log(result);
+      that.queryDetail();
+      wx.showToast({
+        title: result.result ? "取消成功" : "取消失败",
+        icon: 'none',
+        duration: 2000
+      })
+    });
+
+  },
+  //音频控制面板
+  animationClick: function () {
+
+    let processBarShow = this.data.processBarShow == 0 ? 1 : 0;
+    var animation = wx.createAnimation({
+      transformOrigin: "50% 50%",
+      duration: 1000,
+      timingFunction: "ease",
+      delay: 0
+    })
+    animation.opacity(processBarShow).translateY(0).step();
+    this.setData({
+      animationData: animation.export(), processBarShow: processBarShow
+    })
+
+  },
+  //星星点击
+  evaluateClick: function (e) {
+    let that = this;
+    let item = e.target.dataset.item;
+    let star = e.target.dataset.star;
+
+    let evs = that.data.evs;
+    for (let i = 0; i < evs.length; i++) {
+      if (item.itemid == "1") {
+        evs[i].rate = parseInt(star);
+        evs[i].percent = parseInt(star) * 2;
+      }
+      else {
+        if (evs[i].itemid == item.itemid) {
+          evs[i].rate = parseInt(star);
+          evs[i].percent = parseInt(star) * 2;
+        }
+      }
+
+    }
+    that.setData({
+      evs: evs
+    })
+  },
+  //评价提交
+  evaluateSubmit: function () {
+    let that = this;
+    let joinJudgeControl = that.data.joinJudgeControl;
+    if (joinJudgeControl == 0) {
+      joinJudgeControl = 1;
+      that.setData({
+        joinJudgeControl: joinJudgeControl
+      })
+    }
+    let loginUser = wx.getStorageSync('loginUser');
+
+    let can = true;
+    let evs = that.data.evs;
+    for (let i = 0; i < evs.length; i++) {
+      if (parseInt(evs[i].rate) <= 0) {
+        can = false;
+      }
+    }
+
+    if (can) {
+      let args = {
+        accountid: loginUser.accountId,
+        classcourseid: "",
+        studentid: loginUser.studentId,
+        coursewareid: that.data.lesid,
+        classid: "",
+        scoreList: that.data.evs
+      }
+
+      util.getServerData(args, "api/submitAppraise", function (result) {
+        that.setData({
+          joinJudgeControl: 0
+        })
+        that.queryEvl();
+        wx.showToast({
+          title: result ? '评价成功' : '评价失败',
+          icon: 'none',
+          duration: 2000
+        })
+
+        that.setData({ eva_panel: 0 });
+
+      });
+    }
+    else {
+      wx.showToast({
+        title: "请完整评价",
+        icon: 'none',
+        duration: 2000
+      })
+    }
+
+
+
+  },
+  openEvlu: function () {
+    if (this.data.info.isappraise == '0') {
+      this.setData({ eva_panel: 1 });
+    }
+
+
+  },
+  closeEvlu: function () {
+    this.setData({ eva_panel: 0 });
+  }
+})

@@ -1,0 +1,6 @@
+var __GlobalInfo = {
+  "postUrl": "https://test.e-celap.com/appzwy/",
+  "resourceUrl":"https://file.e-celap.com/FileDownload/mApp/",
+  "fileUrl":"https://file.e-celap.com/FileDownload/"
+};
+module.exports = __GlobalInfo;

@@ -1,0 +1,64 @@
+<view class='container'>
+  <view class='header-box'>
+    <view class='header-box1' bindtap='goOtherPage' data-pagepath="mycenter/yixuelist">
+      <view class='num'>{{numberTime.allscore}}</view>
+      <view class='text1'>学时</view>
+    </view>
+    <view class='header-box1' bindtap='special'>
+      <view class='num'>{{numberTime.myclasscount}}</view>
+      <view class='text2'>专题</view>
+    </view>
+    <view class='header-box1' bindtap='Examination'>
+      <view class='num'>{{numberTime.myexamcount}}</view>
+      <view class='text3'>考试</view>
+    </view>
+  </view>
+  <!--列表——专题 -->
+  <view class='tabcontent-container'>
+    <view class='content-item' wx:for="{{studylists1}}" hover-class="hover-class" wx:key data-index='{{index}}' id='{{item.id}}' bindtap='detailzt'>
+      <view class='item-zhuanti'>专题班</view>
+      <image class='image' mode='aspectFill' src='{{GlobalInfo.fileUrl}}{{item.image_servername }}' />
+      <view class='item-title'>{{item.name}}</view>
+      <view class='schedulecomp'>{{item.schedulecomp}}%</view>
+      <view wx:if="{{item.compulsorynumber}}" class='zuozhe bxxx'>
+        必修完成{{item.compulsorynumber}}门，选修完成{{item.electivenumber}}门
+      </view>
+      <!-- <view class='zuozhe'>
+        <view class='subcolor font30'>
+        <i class='iconfont icon-chakan'></i>{{item.dianji}}</view>
+        <view class='subcolor font30'>
+          <i class='iconfont icon-xingxing'></i>{{item.fenshu}}</view>
+      </view> -->
+    </view>
+  </view>
+  <!--列表——课程  -->
+  <view class='tabcontent-container'>
+    <view class='content-item' wx:for="{{studylists2}}" hover-class="hover-class" wx:key data-index='{{index}}' id='{{item.coursewareid}}' bindtap='detailkc'>
+      <!-- <view class='item-time'>
+        <i class="iconfont icon-shijian"></i>{{item.time}}</view> -->
+      <image class='image' mode='aspectFill' src='{{GlobalInfo.fileUrl}}{{item.imagephoto }}' />
+      <view class='item-title'>{{item.name}}</view>
+      <view class='schedulecomp'>{{item.playpercentage?item.playpercentage:'0%'}}</view>
+      <view class='zuozhe'>
+        <view class='subcolor font30'>
+          <i class='iconfont icon-rencai'></i>{{item.teachersname}}</view>
+        <view class='subcolor font30'>
+          <i class='iconfont icon-xingxing'></i>{{item.grade}}</view>
+      </view>
+      <view class='erji'>
+        <view class='erji-i'>
+          <!--音频  -->
+          <image mode='aspectFill' wx:if='{{item.activetype==2}}' src='{{GlobalInfo.resourceUrl}}yinping.png'></image>
+          <!--视频  -->
+          <image mode='aspectFill' wx:if='{{item.activetype==1}}' src='{{GlobalInfo.resourceUrl}}shipin.png'></image>
+          <!--视频音频  -->
+          <image mode='aspectFill' wx:if='{{item.activetype==3}}' src='{{GlobalInfo.resourceUrl}}yinpingshipin.png'></image>
+        </view>
+      </view>
+    </view>
+  </view>
+  <view wx:if="{{studylists1.length==0&&studylists2.length==0}}" class='empty-container' style='width:100%;'>
+    <image mode='widthFix' src='/image/empty.png' style='width:30%;'></image>
+    <view>您还没有待学习的，快去加入吧</view>
+  </view>
+</view>
