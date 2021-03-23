@@ -46,7 +46,7 @@
     "backgroundTextStyle": "light",
     "navigationBarBackgroundColor": "#F34141",
     "navigationBarTitleText": "浦东分院",
-    "navigationBarTextStyle": "#ffffff",
+    "navigationBarTextStyle": "white",
     "enablePullDownRefresh": false,
     "backgroundColor": "#F34141"
   },
@@ -75,5 +75,6 @@
         "text": "我的"
       }
     ]
-  }
+  },
+  "sitemapLocation": "sitemap.json"
 }

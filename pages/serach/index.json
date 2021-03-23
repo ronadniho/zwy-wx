@@ -1,6 +1,6 @@
 {
   "navigationBarBackgroundColor": "#F34141",
-  "navigationBarTextStyle": "#ffffff",
+  "navigationBarTextStyle": "white",
   "navigationBarTitleText": "检索",
   "backgroundColor": "#F34141",
   "backgroundTextStyle": "light",
